@@ -189,7 +189,7 @@ def every_result(filename, direction, start_date, end_date, club, men_lagseri, w
                 break 
 
             row+= 1
-    return men_lagseri, women_lagseri
+    #return men_lagseri, women_lagseri
 
 
 
