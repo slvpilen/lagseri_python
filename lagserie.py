@@ -4,6 +4,7 @@
 from openpyxl import Workbook, load_workbook
 from openpyxl.utils import get_column_letter
 from datetime import datetime
+from math import log10
 import os 
 
 
@@ -23,10 +24,10 @@ def excel_files_in_folder(direction):
 def check_dato_in_qualification(dato_cell, start_date, end_date):  # denne er trøbbel!!! feil med format dato fra excel OG sjekk om dato er minder større enn qualicperiode
     correctDate = None
     try:
-        dato_cell = dato_cell[8:10] + dato_cell[5:7] + dato_cell[0:4]
+        dato_cell = dato_cell[8:10] + "." + dato_cell[5:7] + "." + dato_cell[0:4]
         newDate = datetime(int(dato_cell[6:11]),int(dato_cell[3:5]),int(dato_cell[0:2]))
         start = datetime(int(start_date[6:11]),int(start_date[3:5]),int(start_date[0:2]))
-        end = datetime(int(end_date[6:11]),int(end_date[3:5]),int(end_date[0:2]))
+        end = datetime(int(end_date[6:11]),int(end_date[3:5]),int(end_date[0:2]))   
         correctDate = True
     except ValueError:
         correctDate = False
@@ -56,7 +57,7 @@ def check_sheet(wb, filename, start_date, end_date):
 
         if seventh_row == mal_nvf:  # check if the 7th row is excatly same as the "mal"
             dato_cell = str(ws['R5'].value)
-            print(dato_cell)
+            #print(dato_cell)
             dato_in_ok_periode = check_dato_in_qualification(dato_cell, start_date, end_date)
             if dato_in_ok_periode != True:
                 bad_sheets.append([sheet, f"right format, but {dato_in_ok_periode}"])
@@ -93,78 +94,102 @@ def check_sheet(wb, filename, start_date, end_date):
     return ok_sheets, bad_sheets
 
 
-
-
     
 
+class lifter:
+    #https://www.youtube.com/watch?v=JeznW_7DlB0&ab_channel=TechWithTim
+    def __init__(self, data):
+        self.bw = float(data[1])
+        self.category = data[2]
+        if "k" in self.category.lower():
+            self.gender = "f" 
+        else:
+            self.gender = "m"
+        self.name = data[5]
+        self.club = data[6]
+        self.attempts = [int(elem.split(".",1)[0]) for elem in data[7:13]]
+        
+    def get_total(self):
+        self.snatch = self.attempts[0:3]
+        self.cnj = self.attempts[3:6]
 
-def every_result(filename, direction, start_date, end_date, club):
-    dic = {}
+        if len(self.snatch) == 0 or len(self.cnj) == 0:
+            return False
+        
+        self.good_snatch = False
+        self.good_cnj = False
 
+        self.best_snatch = 0
+        self.best_cnj = 0
+        for self.elem in self.snatch:
+            if self.elem >= 1:
+                self.good_snatch = True
+                self.best_snatch = float(self.elem)
+        for self.elem in self.cnj:
+            if self.elem >= 1:
+                self.good_cnj = True
+                self.best_cnj = float(self.elem)
+
+        if not self.good_snatch or not self.good_cnj:
+            return False
+
+        return self.best_snatch + self.best_cnj
+
+    def sinclair_point(self, men_poeng=False):  # dersom True i parameter: blir det herrepoeng, uansett
+        self.men_poeng = men_poeng
+        if self.gender.lower() == "m" or self.men_poeng == True:
+            poeng = self.get_total()*(10**(0.751945030*((log10(self.bw/175.508))**2)))
+            return poeng
+
+        elif self.gender.lower() == "f":
+            poeng = self.get_total()*(10**(0.783497476*((log10(self.bw/153.655))**2)))
+            return poeng
+                   
+
+
+
+def every_result(filename, direction, start_date, end_date, club, men_lagseri, women_lagseri):
+    
     """
     open workbook and find sheets
     """
     wb = load_workbook(filename)  # her må filen være i aktuell mappe, legg til direction slik at åpner folder
     sheets_names = wb.sheetnames
-    ws = wb[sheets_names[0]]  #    wb[sheets[1]]
 
     ok_sheets, bad_sheets = check_sheet(wb, filename, start_date, end_date)
-    """
-    decide whats lifting data and append it to a list
-    """
-    #this is just copy of another work
-    # while  dato:  
 
-    #     if row == 1:
-    #         liste.append(["Dato", f"Close-{filename}"])
-    #     else:
-    #         cell_dato = char_dato + str(row)
-    #         cell_close = char_close + str(row)
+    for sheet in ok_sheets:
+        ws = wb[sheet]
 
-    #         dato = ws[cell_dato].value
-    #         close = ws[cell_close].value
+        row = 9
+        while True: 
             
-    #         liste.append([dato, close])
+            data = [str(ws[str(get_column_letter(char)) + str(row)].value) for char in range(1, 14)]
+            if data.count('None') <= 1:
 
-    #     row+= 1
-    
-    # return liste[:-1]
+                lifter1 = lifter(data)
 
-    
-    # print(ws['A10'].value)
-    # print(ws['A11'].value)
-    # print(ws['A12'].value)
-    # print(ws['A13'].value)
-    # print(ws['A14'].value)
+                if lifter1.club == "Nidelv IL":#club:
+                    #print(lifter1.gender, lifter1.name, lifter1.club)
+                    if lifter1.name not in men_lagseri:
+                        men_lagseri[lifter1.name] = lifter1.sinclair_point(True)
+                    else:
+                        men_lagseri.update({lifter1.name: lifter1.sinclair.point(True)})
 
 
-"""
-    char_dato = "A"  #column_finder("Dato", ws)
-    char_close = "B"  #column_finder("Siste", ws)
+                    if lifter1.gender == "f":
+                        if lifter1.name not in women_lagseri:
+                            women_lagseri[lifter1.name] = lifter1.sinclair_point()
+                        else:
+                            women_lagseri.update({lifter1.name: lifter1.sinclair.point()})
 
-    cell_dato = "A1"
-    cell_close = "A1"
-    close = 100000
-    dato = "21.01.20"
-    row = 1
+  
 
-    while  dato:  
+            if ws['A' + str(row)].value == "Stevnets leder:" or row > 500:
+                break 
 
-        if row == 1:
-            liste.append(["Dato", f"Close-{filename}"])
-        else:
-            cell_dato = char_dato + str(row)
-            cell_close = char_close + str(row)
-
-            dato = ws[cell_dato].value
-            close = ws[cell_close].value
-            
-            liste.append([dato, close])
-
-        row+= 1
-    
-    return liste[:-1]
-"""
+            row+= 1
+    return men_lagseri, women_lagseri
 
 
 
@@ -199,9 +224,9 @@ def info_from_user():
             check_date(spm)
             
 
-    start_date = check_date("Write start date (dd.mm.yyyy): ")
-    end_date =check_date("Write end date (dd.mm.yy): ")
-    club = input("Enter the team/club you want to check. This need to be correct, no check!: ")
+    start_date = "01.01.2010"#check_date("Write start date (dd.mm.yyyy): ")
+    end_date = "01.12.2022"#check_date("Write end date (dd.mm.yy): ")
+    club = "Nidelv IL" #input("Enter the team/club you want to check. This need to be correct, no check!: ")
 
     print("-"*46)
     return start_date, end_date, club
@@ -220,8 +245,17 @@ def main():
 
     #every_results er tenkt å ta inn en og en excel fil og legge beste res til hver pers i dic. 
     #Denne må derfor loopes igjennom alle excel-filene og dic blir oppdater (IKKE returnert ny)
-    all_results_dic = every_result(filenames[0], direction, start_date, end_date, club)
+
+    men_lagseri = {}
+    women_lagseri = {}
+
+    for fn in filenames:
+        every_result(fn, direction, start_date, end_date, club, men_lagseri, women_lagseri)
     #print(liste)
+    print(men_lagseri.keys())
+    print(women_lagseri.keys())
+
+    #takler ikke 5-kamp protokoller
 
 
 if __name__ == "__main__":
