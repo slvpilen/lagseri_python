@@ -46,7 +46,7 @@ def check_sheet(wb, filename, start_date, end_date):
     bad_sheets =  []
 
     mal_nvf = ['Vekt-', 'Kropps-', ' Kate-', 'Fødsels-', 'St', 'Navn', 'Lag', None, 'Rykk', None, None, 'Støt', None, '    Beste forsøk i', None, 'Sammen-', 'Poeng', 'Poeng', 'Pl.', 'Rek.', 'Sinclair Coeff.']
-
+    mal_nvf_5kamp = ['Vekt-', 'Kropps-', 'Kat.', 'Kat.', 'Fødsels-', 'St', 'Navn', 'Lag', 'Rykk', None, None, 'Støt', None, None, 'Vektløfting  total', None, None, None, 'Poeng', '3-hopp', 'Kulekast']
     sheets_names = wb.sheetnames
 
     for sheet in sheets_names:
@@ -55,8 +55,11 @@ def check_sheet(wb, filename, start_date, end_date):
 
         seventh_row = [ws[str(get_column_letter(char)) + "7"].value for char in range(1, 22)]  # 1-21/ A-U
 
-        if seventh_row == mal_nvf:  # check if the 7th row is excatly same as the "mal"
-            dato_cell = str(ws['R5'].value)
+        if seventh_row == mal_nvf or seventh_row == mal_nvf_5kamp:  # check if the 7th row is excatly same as the "mal"
+            if seventh_row == mal_nvf:
+                dato_cell = str(ws['R5'].value)
+            elif seventh_row == mal_nvf_5kamp:
+                dato_cell = str(ws['V5'].value)
             #print(dato_cell)
             dato_in_ok_periode = check_dato_in_qualification(dato_cell, start_date, end_date)
             if dato_in_ok_periode != True:
@@ -99,15 +102,28 @@ def check_sheet(wb, filename, start_date, end_date):
 class lifter:
     #https://www.youtube.com/watch?v=JeznW_7DlB0&ab_channel=TechWithTim
     def __init__(self, data):
-        self.bw = float(data[1])
-        self.category = data[2]
-        if "k" in self.category.lower():
-            self.gender = "f" 
-        else:
-            self.gender = "m"
-        self.name = data[5]
-        self.club = data[6]
-        self.attempts = [int(elem.split(".",1)[0]) for elem in data[7:13]]
+        # try: gir vanlig, except for 5-kamp
+        try:
+            self.bw = float(data[1])
+            self.category = data[2]
+            if "k" in self.category.lower():
+                self.gender = "f" 
+            else:
+                self.gender = "m"
+            self.name = data[5]
+            self.club = data[6]
+            self.attempts = [int(elem.replace("-","0").split(".",1)[0]) for elem in data[7:13]]
+
+        except:
+            self.bw = float(data[1])
+            self.category = data[2]
+            if "k" in self.category.lower():
+                self.gender = "f" 
+            else:
+                self.gender = "m"
+            self.name = data[6]
+            self.club = data[7]
+            self.attempts = [int(str(elem).replace("-","0").split(".",1)[0]) for elem in data[8:14]]
         
     def get_total(self):
         self.snatch = self.attempts[0:3]
@@ -135,15 +151,17 @@ class lifter:
 
         return self.best_snatch + self.best_cnj
 
-    def sinclair_point(self, men_poeng=False):  # dersom True i parameter: blir det herrepoeng, uansett
+    def sinclair_point(self, men_poeng=False):  # dersom True i parameter: blir det herrepoeng, uansett kjønn!
         self.men_poeng = men_poeng
-        if self.gender.lower() == "m" or self.men_poeng == True:
+        if self.gender.lower() == "m" or self.men_poeng == True and self.get_total()!=False:
             poeng = self.get_total()*(10**(0.751945030*((log10(self.bw/175.508))**2)))
             return poeng
 
-        elif self.gender.lower() == "f":
+        elif self.gender.lower() == "f" and self.get_total()!=False:
             poeng = self.get_total()*(10**(0.783497476*((log10(self.bw/153.655))**2)))
             return poeng
+        else:
+            return -1  # No valid result (need 1 good attempt in snatch and cnj to get a total)!
                    
 
 
@@ -164,24 +182,28 @@ def every_result(filename, direction, start_date, end_date, club, men_lagseri, w
         row = 9
         while True: 
             
-            data = [str(ws[str(get_column_letter(char)) + str(row)].value) for char in range(1, 14)]
+            data = [str(ws[str(get_column_letter(char)) + str(row)].value) for char in range(1, 15)]
             if data.count('None') <= 1:
 
                 lifter1 = lifter(data)
 
-                if lifter1.club == "Nidelv IL":#club:
+                if lifter1.club == club and not lifter1.get_total() == False:
                     #print(lifter1.gender, lifter1.name, lifter1.club)
                     if lifter1.name not in men_lagseri:
                         men_lagseri[lifter1.name] = lifter1.sinclair_point(True)
                     else:
-                        men_lagseri.update({lifter1.name: lifter1.sinclair.point(True)})
+                        sinclaire = lifter1.sinclair_point(True)
+                        if sinclaire > men_lagseri[lifter1.name]:
+                            men_lagseri.update({lifter1.name: lifter1.sinclair_point(True)})
 
 
                     if lifter1.gender == "f":
                         if lifter1.name not in women_lagseri:
                             women_lagseri[lifter1.name] = lifter1.sinclair_point()
                         else:
-                            women_lagseri.update({lifter1.name: lifter1.sinclair.point()})
+                            sinclaire = lifter1.sinclair_point()
+                            if sinclaire > women_lagseri[lifter1.name]:
+                                women_lagseri.update({lifter1.name: lifter1.sinclair_point()})
 
   
 
@@ -189,8 +211,6 @@ def every_result(filename, direction, start_date, end_date, club, men_lagseri, w
                 break 
 
             row+= 1
-    #return men_lagseri, women_lagseri
-
 
 
 def info_from_user():
@@ -224,9 +244,9 @@ def info_from_user():
             check_date(spm)
             
 
-    start_date = "01.01.2010"#check_date("Write start date (dd.mm.yyyy): ")
-    end_date = "01.12.2022"#check_date("Write end date (dd.mm.yy): ")
-    club = "Nidelv IL" #input("Enter the team/club you want to check. This need to be correct, no check!: ")
+    start_date = check_date("Write start date (dd.mm.yyyy): ")  # "01.01.2010"
+    end_date = check_date("Write end date (dd.mm.yy): ")  # "01.12.2022"
+    club = input("Enter the team/club you want to check. This need to be correct, no check!: ")  # "Nidelv IL" 
 
     print("-"*46)
     return start_date, end_date, club
@@ -251,11 +271,31 @@ def main():
 
     for fn in filenames:
         every_result(fn, direction, start_date, end_date, club, men_lagseri, women_lagseri)
-    #print(liste)
-    print(men_lagseri.keys())
-    print(women_lagseri.keys())
+    
+ 
 
-    #takler ikke 5-kamp protokoller
+    men_lagseri_liste =[]
+    women_lagseri_liste =[]
+    for navn in men_lagseri:
+        men_lagseri_liste.append([navn, men_lagseri[navn]])
+        #print(navn.ljust(25),"\t", men_lagseri[navn])
+    men_lagseri_liste = sorted(men_lagseri_liste,key=lambda l:l[1], reverse=True)
+
+    for navn in women_lagseri:
+        women_lagseri_liste.append([navn, women_lagseri[navn]])
+        #print(navn.ljust(25),"\t", men_lagseri[navn])
+    women_lagseri_liste = sorted(women_lagseri_liste,key=lambda l:l[1], reverse=True)
+
+
+    print("Mens sorted sinclair points:")
+    for lifter in men_lagseri_liste:
+        print(lifter[0].ljust(25),"\t", round(lifter[1],2))
+
+    print("\nWomens sorted sinclair points:")
+    for lifter in women_lagseri_liste:
+        print(lifter[0].ljust(25),"\t", round(lifter[1],2))
+    
+    
 
 
 if __name__ == "__main__":
