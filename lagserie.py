@@ -1,4 +1,5 @@
 """   lagseriereultat-calculater   """
+# open .xlsx files only, NOT .xls (older then 2010)
 
 
 from openpyxl import Workbook, load_workbook
@@ -45,7 +46,7 @@ def check_sheet(wb, filename, start_date, end_date):
     ok_sheets = []
     bad_sheets =  []
 
-    mal_nvf = ['Vekt-', 'Kropps-', ' Kate-', 'Fødsels-', 'St', 'Navn', 'Lag', None, 'Rykk', None, None, 'Støt', None, '    Beste forsøk i', None, 'Sammen-', 'Poeng', 'Poeng', 'Pl.', 'Rek.', 'Sinclair Coeff.']
+    mal_nvf = ['Vekt-', 'Kropps-', 'Kate-', 'Fødsels-', 'St', 'Navn', 'Lag', None, 'Rykk', None, None, 'Støt']
     mal_nvf_5kamp = ['Vekt-', 'Kropps-', 'Kat.', 'Kat.', 'Fødsels-', 'St', 'Navn', 'Lag', 'Rykk', None, None, 'Støt', None, None, 'Vektløfting  total', None, None, None, 'Poeng', '3-hopp', 'Kulekast']
     sheets_names = wb.sheetnames
 
@@ -53,8 +54,8 @@ def check_sheet(wb, filename, start_date, end_date):
         ws = wb[sheet] 
         added = 0
 
-        seventh_row = [ws[str(get_column_letter(char)) + "7"].value for char in range(1, 22)]  # 1-21/ A-U
-
+        seventh_row = [ws[str(get_column_letter(char)) + "7"].value for char in range(1, 13)]  # 1-21/ A-U
+        print(seventh_row)
         if seventh_row == mal_nvf or seventh_row == mal_nvf_5kamp:  # check if the 7th row is excatly same as the "mal"
             if seventh_row == mal_nvf:
                 dato_cell = str(ws['R5'].value)
@@ -270,6 +271,7 @@ def main():
     women_lagseri = {}
 
     for fn in filenames:
+        print(fn)
         every_result(fn, direction, start_date, end_date, club, men_lagseri, women_lagseri)
     
  
