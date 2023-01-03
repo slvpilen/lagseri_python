@@ -13,6 +13,24 @@ import os
 #  pip install pillow   # for filer med bilder
 
 
+class colors:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKCYAN = '\033[96m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+
+    GREEN_B = '\x1b[6;30;42m'
+    RED_B = '\x1b[6;30;41m'
+    YELLOW_B = '\x1b[5;30;43m'
+    LIGHT_B = '\x1b[6;30;44m'
+
+
+
 def excel_files_in_folder(direction):
     folder = os.listdir(direction)
     excel_files = []
@@ -24,6 +42,7 @@ def excel_files_in_folder(direction):
 
 def check_dato_in_qualification(dato_cell, start_date, end_date):  # denne er trøbbel!!! feil med format dato fra excel OG sjekk om dato er minder større enn qualicperiode
     correctDate = None
+    #print(dato_cell)
     try:
         dato_cell = dato_cell[8:10] + "." + dato_cell[5:7] + "." + dato_cell[0:4]
         newDate = datetime(int(dato_cell[6:11]),int(dato_cell[3:5]),int(dato_cell[0:2]))
@@ -46,21 +65,29 @@ def check_sheet(wb, filename, start_date, end_date):
     ok_sheets = []
     bad_sheets =  []
 
-    mal_nvf = ['Vekt-', 'Kropps-', 'Kate-', 'Fødsels-', 'St', 'Navn', 'Lag', None, 'Rykk', None, None, 'Støt']
-    mal_nvf_5kamp = ['Vekt-', 'Kropps-', 'Kat.', 'Kat.', 'Fødsels-', 'St', 'Navn', 'Lag', 'Rykk', None, None, 'Støt', None, None, 'Vektløfting  total', None, None, None, 'Poeng', '3-hopp', 'Kulekast']
+    mal_nvf = ["kropp", "kat", "fødsels", "navn", "lag", "rykk", "støt"]
+    mal_nvf_5kamp = "k a m p"
     sheets_names = wb.sheetnames
 
     for sheet in sheets_names:
-        ws = wb[sheet] 
+        ws = wb[sheet]  
         added = 0
+        nvf_sheet = True
 
-        seventh_row = [ws[str(get_column_letter(char)) + "7"].value for char in range(1, 13)]  # 1-21/ A-U
-        print(seventh_row)
-        if seventh_row == mal_nvf or seventh_row == mal_nvf_5kamp:  # check if the 7th row is excatly same as the "mal"
-            if seventh_row == mal_nvf:
-                dato_cell = str(ws['R5'].value)
-            elif seventh_row == mal_nvf_5kamp:
-                dato_cell = str(ws['V5'].value)
+        seventh_row = [str(ws[str(get_column_letter(char)) + "7"].value) for char in range(1, 13)]  # 1-21/ A-U
+        seventh_row = ''.join(seventh_row).lower()
+        #if seventh_row == mal_nvf or seventh_row == mal_nvf_5kamp:  # check if the 7th row is excatly same as the "mal"
+        for elem in mal_nvf:
+            if elem not in seventh_row:
+                nvf_sheet = False 
+
+
+        if nvf_sheet:
+            if mal_nvf_5kamp in str(ws['G2'].value).lower():
+                dato_cell = str(ws['V5'].value)  # 5-kamp protokoll
+            else:
+                dato_cell = str(ws['R5'].value)  # vanlig protokoll
+
             #print(dato_cell)
             dato_in_ok_periode = check_dato_in_qualification(dato_cell, start_date, end_date)
             if dato_in_ok_periode != True:
@@ -88,12 +115,14 @@ def check_sheet(wb, filename, start_date, end_date):
         """
     Printing info about sheets passed and not passed check
     """        
-    print( f"This sheets in file {filename} is ok:")
+    print(f"{colors.UNDERLINE}This sheets in file '{filename}' is ok: {colors.ENDC}") 
     for sheet in ok_sheets:
-        print(sheet)
-    print("\nThis is the bad ones:")
+        print(f"{colors.GREEN_B}{sheet[:20]}{colors.ENDC}")
+        
+    print(f"{colors.UNDERLINE} \nThis is the bad ones: {colors.ENDC}") 
     for sheet in bad_sheets:
-        print(sheet[0].ljust(15), "\t", "(", sheet[1], ")")
+        print(f"{colors.RED_B} {sheet[0][:20].ljust(25)}({sheet[1]}) {colors.ENDC}") 
+        
     print("-"*46)
     return ok_sheets, bad_sheets
 
@@ -103,8 +132,9 @@ def check_sheet(wb, filename, start_date, end_date):
 class lifter:
     #https://www.youtube.com/watch?v=JeznW_7DlB0&ab_channel=TechWithTim
     def __init__(self, data):
-        # try: gir vanlig, except for 5-kamp
-        try:
+        # if: gir vanlig, else for 5-kamp
+ 
+        if data[7].replace("-","0").split(".",1)[0].isdigit():   # Vanlig protokoll
             self.bw = float(data[1])
             self.category = data[2]
             if "k" in self.category.lower():
@@ -112,10 +142,11 @@ class lifter:
             else:
                 self.gender = "m"
             self.name = data[5]
-            self.club = data[6]
+            self.club = data[6].lower()
             self.attempts = [int(elem.replace("-","0").split(".",1)[0]) for elem in data[7:13]]
 
-        except:
+
+        elif not data[7].replace("-","0").split(".",1)[0].isdigit():   # 5-kamp
             self.bw = float(data[1])
             self.category = data[2]
             if "k" in self.category.lower():
@@ -123,7 +154,7 @@ class lifter:
             else:
                 self.gender = "m"
             self.name = data[6]
-            self.club = data[7]
+            self.club = data[7].lower()
             self.attempts = [int(str(elem).replace("-","0").split(".",1)[0]) for elem in data[8:14]]
         
     def get_total(self):
@@ -188,7 +219,7 @@ def every_result(filename, direction, start_date, end_date, club, men_lagseri, w
 
                 lifter1 = lifter(data)
 
-                if lifter1.club == club and not lifter1.get_total() == False:
+                if lifter1.club == club and lifter1.get_total() != False:
                     #print(lifter1.gender, lifter1.name, lifter1.club)
                     if lifter1.name not in men_lagseri:
                         men_lagseri[lifter1.name] = lifter1.sinclair_point(True)
@@ -250,7 +281,7 @@ def info_from_user():
     club = input("Enter the team/club you want to check. This need to be correct, no check!: ")  # "Nidelv IL" 
 
     print("-"*46)
-    return start_date, end_date, club
+    return start_date, end_date, club.lower()
 
 
 
@@ -271,7 +302,7 @@ def main():
     women_lagseri = {}
 
     for fn in filenames:
-        print(fn)
+        print(f"{colors.OKBLUE}filename: {fn}{colors.ENDC}") 
         every_result(fn, direction, start_date, end_date, club, men_lagseri, women_lagseri)
     
  
@@ -289,16 +320,20 @@ def main():
     women_lagseri_liste = sorted(women_lagseri_liste,key=lambda l:l[1], reverse=True)
 
 
+    #YELLOW_B = '\x1b[5;30;43m'
+    #LIGHT_B = '\x1b[6;30;44m'
+
     print("Mens sorted sinclair points:")
     for lifter in men_lagseri_liste:
-        print(lifter[0].ljust(25),"\t", round(lifter[1],2))
+        print(f"{colors.YELLOW_B}{lifter[0][:20].ljust(25)}\t{colors.ENDC}", f"{colors.LIGHT_B}{round(lifter[1],2)}{colors.ENDC}")
 
     print("\nWomens sorted sinclair points:")
     for lifter in women_lagseri_liste:
-        print(lifter[0].ljust(25),"\t", round(lifter[1],2))
+        print(f"{colors.YELLOW_B}{lifter[0][:20].ljust(25)}\t{colors.ENDC}", f"{colors.LIGHT_B}{round(lifter[1],2)}{colors.ENDC}")
     
     
 
 
 if __name__ == "__main__":
+    pass
     main()
