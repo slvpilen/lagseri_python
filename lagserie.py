@@ -31,7 +31,7 @@ class colors:
 
 
 
-def excel_files_in_folder(direction):
+def read_excel_files(direction):
     folder = os.listdir(direction)
     excel_files = []
     for file in folder:
@@ -42,7 +42,6 @@ def excel_files_in_folder(direction):
 
 def check_dato_in_qualification(dato_cell, start_date, end_date):  # denne er trøbbel!!! feil med format dato fra excel OG sjekk om dato er minder større enn qualicperiode
     correctDate = None
-    #print(dato_cell)
     try:
         dato_cell = dato_cell[8:10] + "." + dato_cell[5:7] + "." + dato_cell[0:4]
         newDate = datetime(int(dato_cell[6:11]),int(dato_cell[3:5]),int(dato_cell[0:2]))
@@ -51,7 +50,6 @@ def check_dato_in_qualification(dato_cell, start_date, end_date):  # denne er tr
         correctDate = True
     except ValueError:
         correctDate = False
-        #present = datetime.now()
     if correctDate and start <= newDate <= end:
             return True
     else:
@@ -76,7 +74,7 @@ def check_sheet(wb, filename, start_date, end_date):
 
         seventh_row = [str(ws[str(get_column_letter(char)) + "7"].value) for char in range(1, 13)]  # 1-21/ A-U
         seventh_row = ''.join(seventh_row).lower()
-        #if seventh_row == mal_nvf or seventh_row == mal_nvf_5kamp:  # check if the 7th row is excatly same as the "mal"
+
         for elem in mal_nvf:
             if elem not in seventh_row:
                 nvf_sheet = False 
@@ -88,7 +86,6 @@ def check_sheet(wb, filename, start_date, end_date):
             else:
                 dato_cell = str(ws['R5'].value)  # vanlig protokoll
 
-            #print(dato_cell)
             dato_in_ok_periode = check_dato_in_qualification(dato_cell, start_date, end_date)
             if dato_in_ok_periode != True:
                 bad_sheets.append([sheet, f"right format, but {dato_in_ok_periode}"])
@@ -130,7 +127,6 @@ def check_sheet(wb, filename, start_date, end_date):
     
 
 class lifter:
-    #https://www.youtube.com/watch?v=JeznW_7DlB0&ab_channel=TechWithTim
     def __init__(self, data):
         # if: gir vanlig, else for 5-kamp
  
@@ -286,42 +282,38 @@ def info_from_user():
 
 
 def main():
-    # Intro text
+    # Intro text:
     print("This is a program that calculate team results for a periode","\n", "-"*46)
 
+    # getting nessesary info from user:
     start_date, end_date, club = info_from_user()
-    #print(start_date, end_date, club)
 
+    # Getting all the excel files in direction (this folder)
     direction = os.path.dirname(os.path.realpath(__file__)) #r"C:\Users\oskar\Documents\lagserie_python"
-    filenames = excel_files_in_folder(direction)
+    excel_files = read_excel_files(direction)
 
-    #every_results er tenkt å ta inn en og en excel fil og legge beste res til hver pers i dic. 
-    #Denne må derfor loopes igjennom alle excel-filene og dic blir oppdater (IKKE returnert ny)
 
     men_lagseri = {}
     women_lagseri = {}
 
-    for fn in filenames:
+    # getting all the best women and men results:
+    for fn in excel_files:
         print(f"{colors.OKBLUE}filename: {fn}{colors.ENDC}") 
         every_result(fn, direction, start_date, end_date, club, men_lagseri, women_lagseri)
     
- 
 
+    # Adding the results to an list and sort the lisr
     men_lagseri_liste =[]
     women_lagseri_liste =[]
     for navn in men_lagseri:
         men_lagseri_liste.append([navn, men_lagseri[navn]])
-        #print(navn.ljust(25),"\t", men_lagseri[navn])
     men_lagseri_liste = sorted(men_lagseri_liste,key=lambda l:l[1], reverse=True)
 
     for navn in women_lagseri:
         women_lagseri_liste.append([navn, women_lagseri[navn]])
-        #print(navn.ljust(25),"\t", men_lagseri[navn])
     women_lagseri_liste = sorted(women_lagseri_liste,key=lambda l:l[1], reverse=True)
 
 
-    #YELLOW_B = '\x1b[5;30;43m'
-    #LIGHT_B = '\x1b[6;30;44m'
 
     print("Mens sorted sinclair points:")
     for lifter in men_lagseri_liste:
@@ -335,5 +327,9 @@ def main():
 
 
 if __name__ == "__main__":
-    pass
     main()
+
+# idè: ENdre slik at alle resultatet lagres i lifter objektet og lagre alle 
+#løftere i en dictionery. Der kan man enkelt lage metoder i class som
+# henter ut beste sinclair, guttepoeng/herrepoeng
+# lage lister kun dersom alder er innenfor riktig etc
