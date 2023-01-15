@@ -13,6 +13,7 @@ import os
 #  pip install pillow   # for filer med bilder
 
 
+# Colors for better looking results in cmd
 class colors:
     HEADER = '\033[95m'
     OKBLUE = '\033[94m'
@@ -129,6 +130,7 @@ def check_sheet(wb, filename, start_date, end_date):
 class lifter:
     def __init__(self, data):
         # if: gir vanlig, else for 5-kamp
+        print(data)
  
         if data[7].replace("-","0").split(".",1)[0].isdigit():   # Vanlig protokoll
             self.bw = float(data[1])
