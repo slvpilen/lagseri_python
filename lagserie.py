@@ -139,6 +139,7 @@ class lifter:
                 self.gender = "f" 
             else:
                 self.gender = "m"
+            self.born = data[3]
             self.name = data[5]
             self.club = data[6].lower()
             self.attempts = [int(elem.replace("-","0").split(".",1)[0]) for elem in data[7:13]]
@@ -151,6 +152,7 @@ class lifter:
                 self.gender = "f" 
             else:
                 self.gender = "m"
+            self.born = data[4]
             self.name = data[6]
             self.club = data[7].lower()
             self.attempts = [int(str(elem).replace("-","0").split(".",1)[0]) for elem in data[8:14]]
